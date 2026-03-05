@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>G-Calc</title>
+
+<!-- PWA Meta-Tags -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2e7d32">
+
+<!-- Manifest -->
+<link rel="manifest" href="/manifest.json">
+
+<style>
+  body { font-family: sans-serif; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; text-align:center; margin:0; background:#020617; color:white; }
+  #install-btn { display:none; margin-top:20px; padding:12px 24px; font-size:1rem; border:none; border-radius:12px; background:#38bdf8; color:#020617; cursor:pointer; }
+</style>
+</head>
+<body>
+<h1>G-Calculator</h1>
+<p>Öffnen Sie die App über den Homescreen für die beste Erfahrung.</p>
+<button id="install-btn">Zum Homescreen hinzufügen</button>
+
+<script>
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'inline-block';
+});
+
+installBtn.addEventListener('click', async () => {
+    installBtn.style.display = 'none';
+    if(deferredPrompt) {
+        deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+    }
+});
+
+// Optional: Automatisch zur App weiterleiten, falls sie schon installiert ist
+if (window.matchMedia('(display-mode: standalone)').matches) {
+    window.location.replace('/g-calculator.html');
+}
+</script>
+</body>
+</html>
