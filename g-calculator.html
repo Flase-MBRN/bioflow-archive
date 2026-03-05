@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>BioFlow v21.2 - Mobile Fix</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --bg:#020617; --card:rgba(15, 23, 42, 0.8); --accent:#38bdf8; --text:#f8fafc; --muted:#64748b; --border:rgba(56, 189, 248, 0.2); --success:#10b981;
+  --glow: rgba(56, 189, 248, 0.12);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent; transition: all 0.2s ease-out;}
+body{ margin:0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height:100vh; overflow-x:hidden; transition: background-color 0.8s ease; }
+
+#quantum-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+
+.app-container{
+  width: 90%; max-width: 1200px; min-width: 320px;
+  padding: 20px; padding-bottom: 120px;
+  position: relative; z-index: 1; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* CORE SELECTOR */
+.core-selector-wrapper { overflow-x: auto; padding: 10px 0; margin-bottom: 10px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.core-selector-wrapper::-webkit-scrollbar { display: none; }
+.core-selector { display: flex; gap: 12px; width: 100%; overflow-x: auto; scroll-snap-type: x mandatory; }
+.core-btn { 
+    background: var(--card); border: 1px solid var(--border); padding: 12px; border-radius: 20px; 
+    opacity: 0.4; min-width: 95px; cursor: pointer; text-align:center; flex: 0 0 auto; scroll-snap-align: start;
+}
+.core-btn.active { opacity: 1; border-color: var(--accent); transform: scale(1.05); box-shadow: 0 10px 25px var(--glow); border-width: 2px; }
+.core-btn span { display:block; font-size:1.4rem; }
+.core-btn label { font-size:0.65rem; font-weight:800; text-transform:uppercase; margin-top:5px; display:block; letter-spacing: 0.5px; }
+
+/* HERO CARD */
+.hero-card{ background: linear-gradient(145deg, var(--card), rgba(15,23,42,0.4)); border:1px solid var(--border); border-radius:35px; padding:30px 20px; text-align:center; margin-bottom:10px; }
+.score-val{ font-size: 5.5rem; font-weight: 900; line-height:1; letter-spacing:-3px; text-shadow: 0 0 30px var(--glow); margin: 10px 0; }
+
+/* CONTROLS */
+.controls-card{ background:var(--card); border-radius:28px; padding:20px; border:1px solid var(--border); margin-bottom:10px; }
+.label-flex{ display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700; color:var(--muted); margin-bottom:10px; text-transform: uppercase; }
+input[type=range]{ -webkit-appearance:none; width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:10px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; height: 28px; width: 28px; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 0 10px rgba(0,0,0,0.5); }
+
+/* DOCK */
+.dock{ position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:800px; padding:20px; background:rgba(2,6,23,0.95); backdrop-filter:blur(30px); border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:12px; z-index:1000; }
+.btn{ border:none; border-radius:18px; padding:15px; font-weight:800; cursor:pointer; font-size:0.8rem; letter-spacing:1px; touch-action: manipulation; }
+.btn-p{ background:var(--accent); color:var(--bg); grid-column: span 2; box-shadow: 0 5px 20px var(--glow); }
+.btn-s{ background:rgba(255,255,255,0.05); color:var(--text); border:1px solid var(--border); }
+
+/* MODALS - FIXED Z-INDEX */
+.modal-overlay { 
+    display:none; justify-content:center; align-items:center; position:fixed; top:0; left:0; width:100%; height:100%; 
+    background:rgba(0,0,0,0.9); z-index:9999; backdrop-filter:blur(8px); 
+}
+.modal-card { 
+    background: var(--card); border-radius:25px; padding:30px; max-width:360px; text-align:center; border:1px solid var(--border); width:90%; 
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+#history-overlay { display:none; background:var(--bg); position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; padding:20px; overflow-y:auto; }
+.filter-bar { display:flex; gap:8px; overflow-x:auto; margin-bottom:15px; padding-bottom:10px; }
+.filter-btn { padding:8px 16px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:0.7rem; white-space:nowrap; cursor:pointer; }
+.filter-btn.active { background:var(--accent); color:var(--bg); font-weight:800; }
+
+/* TOAST - FIXED GHOSTING */
+#toast { 
+    display: none; /* Hidden by default */
+    position:fixed; bottom:100px; left:50%; transform:translateX(-50%); 
+    background:var(--success); color:#022c22; padding:12px 24px; border-radius:30px; 
+    font-weight:800; opacity:0; pointer-events:none; transition:.4s; 
+    z-index:5000; /* Lower than modal */
+    box-shadow:0 10px 30px rgba(0,0,0,0.5); 
+}
+#toast.show { display: block; opacity:1; transform:translateX(-50%) translateY(-10px); }
+
+/* DELETE BTN */
+.del-btn { background:transparent; border:none; color:var(--muted); font-size:1.2rem; cursor:pointer; padding:5px 10px; }
+.del-btn:hover { color:#ef4444; transform:scale(1.2); }
+</style>
+</head>
+<body>
+
+<canvas id="quantum-bg"></canvas>
+<div id="toast">Gespeichert ✓</div>
+
+<div id="tutorial-modal" class="modal-overlay" style="display:flex">
+    <div class="modal-card">
+        <h2 style="color:var(--accent); margin-top:0;">BioFlow Quantum</h2>
+        <p style="font-size:0.9rem; line-height:1.6; text-align:left; color:#cbd5e1;">
+            1. <b>Selektion:</b> Wähle deine Substanz.<br>
+            2. <b>Parameter:</b> Justiere Dosis & Setting.<br>
+            3. <b>Physik:</b> Achte auf Entropie-Warnungen.<br>
+            4. <b>Journal:</b> Lösche alte Einträge, um die Physik zu resetten.
+        </p>
+        <button class="btn btn-p" onclick="showLegal()" style="cursor:pointer; z-index:10001; position:relative;">WEITER</button>
+    </div>
+</div>
+
+<div id="legal-modal" class="modal-overlay">
+    <div class="modal-card">
+        <h2 style="color:#ef4444; margin-top:0;">WARNUNG</h2>
+        <p style="font-size:0.8rem; line-height:1.6; color:var(--muted)">
+            Dies ist eine <b>mathematische Simulation</b>. Keine medizinische Beratung. Mischkonsum kann gefährlich sein.
+        </p>
+        <button class="btn btn-p" onclick="closeStartModals()" style="cursor:pointer;">AKZEPTIEREN & STARTEN</button>
+    </div>
+</div>
+
+<div id="feedback-modal" class="modal-overlay">
+    <div class="modal-card">
+        <h3>Session Loggen</h3>
+        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:20px;">Wie nah war die Schätzung?</p>
+        <div style="display:grid; gap:10px;">
+            <button class="btn btn-s" onclick="confirmSave('Schwächer')">Schwächer</button>
+            <button class="btn btn-s" style="border-color:var(--accent)" onclick="confirmSave('Genau richtig')">Genau richtig</button>
+            <button class="btn btn-s" onclick="confirmSave('Stärker')">Stärker</button>
+        </div>
+        <button class="btn btn-s" style="margin-top:20px; width:100%; opacity:0.5;" onclick="closeFeedback()">Abbrechen</button>
+    </div>
+</div>
+
+<div class="app-container">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-weight:900; font-size:1.5rem;">BIOFLOW <span style="background:var(--accent); color:var(--bg); padding:2px 6px; border-radius:6px; font-size:0.7rem; vertical-align:middle;">v21.2</span></div>
+        <div style="font-size:0.7rem; opacity:0.5;">PHYSICS ED.</div>
+    </div>
+
+    <div class="core-selector-wrapper"><div class="core-selector" id="carousel"></div></div>
+
+    <div class="hero-card">
+        <span id="score-type" style="font-size:0.65rem; color:var(--muted); font-weight:800; letter-spacing:2px;">INITIALISIERE...</span>
+        <div class="score-val"><span id="disp-score">0</span>%</div>
+        <div id="predict-msg" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:15px;"></div>
+    </div>
+
+    <div id="controls-list"></div>
+
+    <div class="controls-card">
+        <div class="label-flex"><span>Notizen (optional)</span></div>
+        <textarea id="note" placeholder="Wirkungsverlauf, Setting..." style="width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:15px; padding:15px; color:white; font-family:inherit; font-size:0.85rem; resize:none;" rows="2"></textarea>
+    </div>
+</div>
+
+<div class="dock">
+    <button class="btn btn-p" onclick="openFeedback()">SPEICHERN</button>
+    <button class="btn btn-s" onclick="toggleHistory()">JOURNAL</button>
+    <button class="btn btn-s" onclick="if(confirm('Alles zurücksetzen?')) location.reload()">RESET</button>
+</div>
+
+<div id="history-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+        <h2 style="margin:0;">Quanten Journal</h2>
+        <button class="btn btn-s" onclick="toggleHistory()" style="border-radius:50%; width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
+    <div class="filter-bar" id="journal-filter"></div>
+    <div class="hero-card" style="height:250px; padding:10px;"><canvas id="chart"></canvas></div>
+    <div id="logs-list" style="padding-bottom:50px;"></div>
+</div>
+
+<script>
+/* ================= SYSTEM VARIABLES ================= */
+const canvas = document.getElementById('quantum-bg');
+const ctx = canvas.getContext('2d');
+let particles = [], scoreRef = 0, journalFilter = "ALL", vals = {}, currentCore = "KAFFEE";
+let chartLoaded = false, lastFrame = 0;
+
+
+/* ================= ADAPTIVE LEARNING ENGINE ================= */
+const CAL_KEY = 'bf_calib_v22'; // Neue Version für v22
+let CAL = {};
+try { 
+    CAL = JSON.parse(localStorage.getItem(CAL_KEY) || '{}'); 
+} catch(e) { 
+    CAL = {}; 
+}
+
+function getCalFactor(core) { return (CAL[core] !== undefined) ? CAL[core] : 1; }
+
+function saveCal() { localStorage.setItem(CAL_KEY, JSON.stringify(CAL)); }
+
+function applyFeedback(core, fb) {
+    const step = 0.05; // 5% Anpassung pro Feedback
+    if (!CAL[core]) CAL[core] = 1;
+    if (fb === 'Stärker') CAL[core] = Math.min(1.5, CAL[core] + step);
+    else if (fb === 'Schwächer') CAL[core] = Math.max(0.5, CAL[core] - step);
+    saveCal();
+    console.log(`System lernt: ${core} Faktor jetzt bei ${CAL[core].toFixed(2)}`);
+}
+
+
+/* ================= DATA CORE ================= */
+const CORES = {
+    KAFFEE:{name:"Kaffee",icon:"☕",color:"#f59e0b",hl:5,aff:0.45},
+    CANNABIS:{name:"Cannabis",icon:"🌿",color:"#10b981",hl:4,aff:1.9},
+    LSD:{name:"LSD",icon:"🌌",color:"#a855f7",hl:12,aff:2.7},
+    PSILO:{name:"Psilo",icon:"🍄",color:"#d946ef",hl:6,aff:2.3},
+    MDMA:{name:"MDMA",icon:"✨",color:"#fb7185",hl:5,aff:2.1},
+    KOKAIN:{name:"Kokain",icon:"🏎️",color:"#f8fafc",hl:1.5,aff:2.2},
+    KETAMIN:{name:"Ketamin",icon:"🌀",color:"#2dd4bf",hl:1.5,aff:1.4},
+    ALKOHOL:{name:"Alkohol",icon:"🍷",color:"#ef4444",hl:5,aff:0.7},
+    NICOTIN:{name:"Nicotin",icon:"🚬",color:"#94a3b8",hl:2,aff:0.6}
+};
+
+
+const PARAMS = [
+    {id:"D",l:"Dosis",min:1,max:10,v:5,s:0.5},
+    {id:"W",l:"Körpergewicht",min:40,max:120,v:75,s:1},
+    {id:"Tol",l:"Toleranz",min:1,max:5,v:1,s:0.1},
+    {id:"M",l:"Mageninhalt",min:0,max:10,v:2,s:1},
+    {id:"Met",l:"Stoffwechsel",min:0.5,max:1.5,v:1,s:0.1},
+    {id:"ES",l:"Setting (Vibe)",min:1,max:10,v:7,s:0.5}
+];
+
+/* ================= INITIALIZATION ================= */
+function setup() {
+    // Safety check for localStorage
+    try {
+        if(!localStorage.getItem('bf_logs_v20')) localStorage.setItem('bf_logs_v20', '[]');
+    } catch(e) { console.log('Storage Access Error'); }
+
+    setupCoreSelector();
+    setupControls();
+    initParticles();
+    animate(0);
+    calculate(); 
+    setupFilters();
+}
+
+function setupCoreSelector() {
+    const car = document.getElementById('carousel');
+    car.innerHTML = "";
+    Object.keys(CORES).forEach(k=>{
+        const btn = document.createElement('div');
+        btn.className = `core-btn ${k===currentCore?'active':''}`;
+        btn.id = `btn-${k}`;
+        btn.innerHTML = `<span>${CORES[k].icon}</span><label>${CORES[k].name}</label>`;
+        btn.onclick = () => setCore(k);
+        car.appendChild(btn);
+    });
+}
+
+function setupControls() {
+    const ctr = document.getElementById('controls-list'); ctr.innerHTML="";
+    PARAMS.forEach(p=>{
+        vals[p.id] = p.v;
+        const card = document.createElement('div');
+        card.className = "controls-card";
+        card.innerHTML = `
+            <div class="label-flex"><span>${p.l}</span><span id="txt-${p.id}" style="color:var(--accent)">${p.v}</span></div>
+            <input type="range" min="${p.min}" max="${p.max}" step="${p.s}" value="${p.v}" oninput="sync('${p.id}',this.value)">
+        `;
+        ctr.appendChild(card);
+    });
+}
+
+/* ================= PHYSICS ENGINE (CALCULATE) ================= */
+/* ================= ERWEITERTE PHYSIK-DATEN ================= */
+const GROUPS = {
+    STIM: ["KAFFEE", "KOKAIN", "NICOTIN"],
+    PSYCH: ["LSD", "PSILO"],
+    DISS: ["KETAMIN"],
+    DEPR: ["ALKOHOL"],
+    EMPA: ["MDMA"],
+    CANN: ["CANNABIS"]
+};
+
+// Gefährliche Kombinationen (0 = Neutral/Sicher, 1 = Vorsicht, 2 = Gefährlich/Lebensgefahr)
+const RISKY_PAIRS = {
+    "ALKOHOL+KETAMIN": 2, // Erstickungsgefahr/Atemdepression
+    "ALKOHOL+MDMA": 1,    // Dehydrierung
+    "KOKAIN+ALKOHOL": 2,  // Herzbelastung (Cocaethylen)
+    "MDMA+LSD": 0,        // Candyflip (Synergie, kein erhöhtes physisches Risiko)
+    "NICOTIN+PSILO": 0,   // Neutral
+    "KAFFEE+LSD": 1       // Erhöhte Herzfrequenz/Anxiety
+};
+
+/* ================= THE ENGINE (v22-READY) ================= */
+
+// 1. Die mathematische Kern-Physik
+function getPhysicsScore() {
+    const c = CORES[currentCore] || CORES['KAFFEE']; 
+    const {D, W, Tol, ES, Met} = vals
+    const personalEff = c.aff * getCalFactor(currentCore);
+    
+    const dosePerKg = D / (W / 75); 
+    const tolDamp = 1 / (1 + Math.pow(Tol - 1, 1.4) * 0.15);
+    const pwr = (dosePerKg * personalEff * tolDamp * (1 + (Met - 1) * 0.5) * (ES / 7)) * 11.5;
+    
+    // Sigmoid-Kurve für biologische Sättigung
+    return Math.max(0, Math.min(100, Math.round((1 / (1 + Math.exp(-0.25 * (pwr - 18)))) * 105) - 3));
+}
+
+function getActionRecommendation() {
+    const score = scoreRef; // Aktuelle Intensität
+    const risk = analyzeRisk(); // Dein bestehendes Risiko-Objekt
+    
+    // 1. Kritische Warnung (Rot)
+    if (score > 80 || risk.level === 'HOCH') {
+        return {
+            color: 'var(--error)', 
+            text: 'STOPP / PAUSE', 
+            desc: 'Systemlast zu hoch. Warte min. 3-4h.',
+            icon: '🛑'
+        };
+    }
+    
+    // 2. Warnung (Gelb)
+    if (score > 60 || risk.level === 'MODERAT') {
+        return {
+            color: 'var(--warning)', 
+            text: 'VORSICHTIG', 
+            desc: 'Wirkung ist präsent. Aktuell gesättigt.',
+            icon: '⚠️'
+        };
+    }
+    
+    // 3. OK (Grün)
+    return {
+        color: 'var(--success)', 
+        text: 'IM FLOW', 
+        desc: 'Basis-Level erreicht. Alles im grünen Bereich.',
+        icon: '✅'
+    };
+}
+
+
+// 2. Die pharmakologische Risiko-Analyse (Decay-Version)
+function analyzeRisk() {
+    let logs = [];
+    try { logs = JSON.parse(localStorage.getItem('bf_logs_v20') || '[]'); } catch(e){}
+    
+    const now = Date.now();
+    let activeSubstances = new Set();
+    activeSubstances.add(currentCore);
+    
+    let totalDecayScore = 0; 
+
+    logs.forEach(l => {
+        const coreData = CORES[l.c];
+        if (coreData) {
+            const stundenVergangen = (now - l.id) / (1000 * 60 * 60);
+            // Die physikalische Abklingformel (Halbwertszeit):
+            const restKonzentration = Math.pow(0.5, stundenVergangen / coreData.hl);
+            
+            // Relevanz-Schwelle: 5%
+            if (restKonzentration > 0.05) {
+                activeSubstances.add(l.c);
+                totalDecayScore += restKonzentration; 
+            }
+        }
+    });
+
+    let maxLevel = 0;
+    let subArray = Array.from(activeSubstances);
+    
+    // Paar-Risiko Prüfung
+    for (let i = 0; i < subArray.length; i++) {
+        for (let j = i + 1; j < subArray.length; j++) {
+            let p1 = subArray[i] + "+" + subArray[j];
+            let p2 = subArray[j] + "+" + subArray[i];
+            let risk = RISKY_PAIRS[p1] || RISKY_PAIRS[p2] || 0;
+            if (risk > maxLevel) maxLevel = risk;
+        }
+    }
+    
+    // Herzlast-Check für Stimulanzien
+    let stims = subArray.filter(s => GROUPS.STIM.includes(s));
+    if (stims.length >= 2 && maxLevel < 1) maxLevel = 1;
+
+    return { 
+        level: maxLevel, 
+        list: subArray,
+        systemLoad: Math.min(100, Math.round(totalDecayScore * 10)) 
+    };
+}
+
+// 3. Der Koordinator
+function calculate() {
+    scoreRef = getPhysicsScore();
+    const risk = analyzeRisk();
+    updateUI(risk);
+}
+
+
+// 4. Das visuelle Rendering (Dashboard Version)
+function updateUI(risk) {
+    const riskConfig = {
+        0: { msg: "KOHÄRENT", icon: "✨", col: "#10b981", bg: "#020617" },
+        1: { msg: "UNSTABIL", icon: "⚡", col: "#f59e0b", bg: "#1a1205" },
+        2: { msg: "KRITISCH", icon: "⚠️", col: "#ef4444", bg: "#2a0a0a" }
+    };
+
+    const r = riskConfig[risk.level];
+    let statusMsg = r.msg;
+    let statusCol = r.col;
+    if (risk.list.length > 1 && risk.level === 0) {
+        statusMsg = "SYNERGIE";
+        statusCol = "#38bdf8";
+    }
+
+    // Werte & Theme setzen
+    document.getElementById('disp-score').innerText = scoreRef;
+    document.documentElement.style.setProperty('--bg', r.bg);
+    document.documentElement.style.setProperty('--accent', statusCol);
+
+    // Dashboard HTML
+    document.getElementById('predict-msg').innerHTML = `
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:15px; border:1px solid ${statusCol}44;">
+                <div style="font-size:0.5rem; opacity:0.5; text-transform:uppercase; letter-spacing:1px;">Sicherheit</div>
+                <div style="color:${statusCol}; font-weight:900; font-size:0.9rem;">${r.icon} ${statusMsg}</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:15px; border:1px solid rgba(255,255,255,0.1);">
+                <div style="font-size:0.5rem; opacity:0.5; text-transform:uppercase; letter-spacing:1px;">System Last</div>
+                <div style="color:${risk.systemLoad > 70 ? '#ef4444' : '#f8fafc'}; font-weight:900; font-size:0.9rem;">${risk.systemLoad}%</div>
+            </div>
+        </div>
+        <div style="text-align:left; margin-bottom:10px;">
+            <div style="font-size:0.5rem; opacity:0.4; text-transform:uppercase; margin-bottom:5px;">Detektierte Signaturen:</div>
+            <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                ${risk.list.map(s => `<span style="background:${statusCol}22; color:${statusCol}; padding:2px 8px; border-radius:6px; font-size:0.6rem; font-weight:700; border:1px solid ${statusCol}33;">${s}</span>`).join('')}
+            </div>
+        </div>
+        <div style="background:${statusCol}11; padding:10px; border-radius:12px; font-size:0.75rem; color:${statusCol}; font-weight:500; border-left:3px solid ${statusCol}; text-align:left;">
+            ${getRecommendation(risk.level, scoreRef)}
+        </div>
+    `;
+    
+    document.getElementById('score-type').innerText = scoreRef > 60 ? "MAXIMALER PEAK" : "FLOW PHASE";
+}
+
+// Semantische Logik
+function getRecommendation(lvl, score) {
+    if (lvl === 2) return "Sofortige Pause. Hydrierung priorisieren. Vitalwerte prüfen.";
+    if (lvl === 1) return "Vorsicht bei weiterer Dosierung. System zeigt Stress.";
+    if (score > 80) return "Hohe Intensität. Reizüberflutung minimieren.";
+    if (score > 30) return "Stabiler Bereich. Fokus auf Set & Setting.";
+    return "Initialisierungs-Phase. Flow baut sich auf.";
+}
+
+
+
+
+/* ================= VISUAL ENGINE (ANIMATE) ================= */
+function initParticles() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    particles = [];
+    const num = window.innerWidth < 600 ? 20 : 50;
+    for (let i = 0; i < num; i++) {
+        particles.push({
+            x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+            size: Math.random() * 2 + 0.5,
+            speedX: (Math.random() - 0.5) * 0.5, speedY: (Math.random() - 0.5) * 0.5
+        });
+    }
+}
+
+function animate(timestamp) {
+    if(timestamp - lastFrame < 16) { requestAnimationFrame(animate); return; }
+    if (document.getElementById('history-overlay').style.display === 'block' || 
+        document.querySelector('.modal-overlay[style*="display:flex"]')) {
+        requestAnimationFrame(animate);
+        return;
+    }
+    lastFrame = timestamp;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    let logs = [];
+    try { logs = JSON.parse(localStorage.getItem('bf_logs_v20') || '[]'); } catch(e){}
+    let recentLogs = logs.slice(-5);
+    let entropy = new Set(recentLogs.map(l => l.c)).size;
+    entropy = (recentLogs.length === 0) ? 1 : entropy;
+
+    particles.forEach(p => {
+        let speedMult = 0.5 + (scoreRef / 25);
+        let jitter = (entropy > 1) ? (Math.random() - 0.5) * (entropy * 1.5) : 0;
+
+        p.x += (p.speedX * speedMult) + jitter;
+        p.y += (p.speedY * speedMult) + jitter;
+
+        if(p.x > canvas.width) p.x = 0; if(p.x < 0) p.x = canvas.width;
+        if(p.y > canvas.height) p.y = 0; if(p.y < 0) p.y = canvas.height;
+
+        ctx.fillStyle = (CORES[currentCore] || CORES.KAFFEE).color;
+        ctx.globalAlpha = 0.1 + (scoreRef / 200);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    requestAnimationFrame(animate);
+}
+
+/* ================= INTERACTION ================= */
+function setCore(id){ 
+    currentCore=id; 
+    document.querySelectorAll('.core-btn').forEach(b=>b.classList.remove('active')); 
+    const btn = document.getElementById('btn-'+id);
+    if(btn) btn.classList.add('active'); 
+    document.documentElement.style.setProperty('--accent', CORES[id].color); 
+    calculate(); 
+}
+
+function sync(id,val){ 
+    vals[id]=parseFloat(val); 
+    document.getElementById(`txt-${id}`).innerText=val; 
+    calculate(); 
+}
+
+/* ================= MODALS & UTILS ================= */
+// Made globally accessible for HTML onclick
+window.showLegal = function(){ 
+    document.getElementById('tutorial-modal').style.display='none'; 
+    document.getElementById('legal-modal').style.display='flex'; 
+}
+window.closeStartModals = function(){ 
+    document.getElementById('legal-modal').style.display='none'; 
+}
+window.openFeedback = function(){ document.getElementById('feedback-modal').style.display='flex'; }
+window.closeFeedback = function(){ document.getElementById('feedback-modal').style.display='none'; }
+
+window.confirmSave = function(fb) {
+  if (fb) {
+    applyFeedback(currentCore, fb); 
+}
+    let logs = JSON.parse(localStorage.getItem('bf_logs_v20') || '[]');
+    logs.push({
+        t: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        id: Date.now(), 
+        s: scoreRef, fb: fb, c: currentCore,
+        n: document.getElementById('note').value,
+        icon: CORES[currentCore].icon, col: CORES[currentCore].color
+    });
+    localStorage.setItem('bf_logs_v20', JSON.stringify(logs.slice(-50)));
+    document.getElementById('note').value = "";
+    closeFeedback();
+    
+    const t = document.getElementById('toast');
+    t.innerText = "Gespeichert ✓";
+    t.style.display = "block"; // Make visible for animation
+    setTimeout(()=> t.classList.add('show'), 10);
+    setTimeout(()=>{ 
+        t.classList.remove('show'); 
+        setTimeout(()=> t.style.display = "none", 400); // Hide completely after anim
+    }, 2500);
+    calculate(); 
+}
+
+/* ================= JOURNAL & DELETION ================= */
+function setupFilters() {
+    const bar = document.getElementById('journal-filter');
+    bar.innerHTML = ''; // Zuerst leeren
+    
+    // Den "ALLE" Button sicher erstellen ohne String-Chaos
+    const allBtn = document.createElement('button');
+    allBtn.className = 'filter-btn active';
+    allBtn.innerText = 'ALLE';
+    allBtn.onclick = function() { setFilter('ALL', allBtn); };
+    bar.appendChild(allBtn);
+    
+    // Die restlichen Buttons
+    Object.keys(CORES).forEach(function(k) {
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn';
+        btn.innerText = CORES[k].icon + ' ' + CORES[k].name;
+        btn.onclick = function() { setFilter(k, btn); };
+        bar.appendChild(btn);
+    });
+}
+
+
+
+function setFilter(f, btn){
+    journalFilter=f;
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(chartLoaded) renderChart();
+}
+window.toggleHistory = function(){
+    const ov=document.getElementById('history-overlay');
+    ov.style.display = ov.style.display==='block'?'none':'block';
+    if(ov.style.display==='block' && !chartLoaded){ renderChart(); chartLoaded=true; }
+}
+
+window.deleteLog = function(id) {
+    if(!confirm("Eintrag löschen? Das berechnet die Entropie neu.")) return;
+    let logs = JSON.parse(localStorage.getItem('bf_logs_v20') || '[]');
+    // Filter by ID (Number)
+    const newLogs = logs.filter(l => l.id != id); 
+    
+    localStorage.setItem('bf_logs_v20', JSON.stringify(newLogs));
+    renderChart();
+    calculate(); 
+    
+    const t = document.getElementById('toast');
+    t.innerText = "Gelöscht & Neuberechnet ↺";
+    t.style.display = "block";
+    setTimeout(()=> t.classList.add('show'), 10);
+    setTimeout(()=>{ 
+        t.classList.remove('show'); 
+        setTimeout(()=> t.style.display = "none", 400); 
+    }, 2500);
+}
+
+function renderChart(){
+    let logs = [];
+    try {
+        logs = JSON.parse(localStorage.getItem('bf_logs_v20') || '[]');
+    } catch(e){ logs = []; }
+    
+    if(journalFilter!=="ALL") logs=logs.filter(l=>l.c===journalFilter);
+    
+    const ctxC=document.getElementById('chart').getContext('2d');
+    if(window.myChart) window.myChart.destroy();
+    
+    window.myChart = new Chart(ctxC,{
+        type:'line',
+        data:{
+            labels:logs.map(l=>l.t),
+            datasets:[{
+                label:'Intensität', 
+                data:logs.map(l=>l.s),
+                borderColor:'#38bdf8', 
+                tension:0.4, 
+                fill:true, 
+                backgroundColor:'rgba(56,189,248,0.1)'
+            }]
+        },
+        options:{ 
+            responsive:true, 
+            maintainAspectRatio:false, 
+            plugins:{legend:{display:false}}, 
+            scales:{
+                x:{display:false}, 
+                y:{grid:{color:'rgba(255,255,255,0.05)'}, min:0, max:100}
+            } 
+        }
+    });
+    
+    const logsList = document.getElementById('logs-list');
+logsList.innerHTML = ''; // Liste zuerst leeren
+
+logs.slice().reverse().forEach(l => {
+    // 1. Die Karten-Hülle
+    const card = document.createElement('div');
+    card.style = `background:var(--card); padding:15px; border-radius:20px; margin-bottom:10px; border-left:4px solid ${l.col}; position:relative;`;
+
+    // 2. Der Header (Name, Zeit, Löschen)
+    const header = document.createElement('div');
+    header.style = 'display:flex; justify-content:space-between; align-items:center;';
+    
+    const title = document.createElement('b');
+    const coreName = CORES[l.c] ? CORES[l.c].name : l.c;
+    title.textContent = `${l.icon} ${coreName}`; // textContent = SICHER
+
+    const right = document.createElement('div');
+    const time = document.createElement('small');
+    time.style.marginRight = '10px';
+    time.textContent = l.t;
+
+    const del = document.createElement('button');
+    del.className = 'del-btn';
+    del.textContent = '🗑️';
+    del.onclick = () => deleteLog(l.id);
+
+    right.appendChild(time);
+    right.appendChild(del);
+    header.appendChild(title);
+    header.appendChild(right);
+
+    // 3. Score Anzeige
+    const score = document.createElement('div');
+    score.style = 'font-size:1.2rem; font-weight:800; margin-top:5px;';
+    score.textContent = `${l.s}%`;
+
+    card.appendChild(header);
+    card.appendChild(score);
+
+    // 4. Der Notiz-Bereich (Der wichtigste Sicherheits-Part!)
+    if (l.n) {
+        const note = document.createElement('div');
+        note.style = 'font-size:0.7rem; opacity:0.7; margin-top:5px; font-style:italic;';
+        // textContent verhindert, dass <script> oder HTML ausgeführt wird
+        note.textContent = `"${l.n}"`; 
+        card.appendChild(note);
+    }
+
+    logsList.appendChild(card);
+});
+
+}
+
+// Fenster-Resize für das Hintergrund-Canvas
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+// Der finale Start-Befehl
+window.onload = () => {
+    setup();
+};
+</script>
+</body>
+</html>
