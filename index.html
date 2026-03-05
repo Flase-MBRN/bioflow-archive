@@ -43,9 +43,13 @@ installBtn.addEventListener('click', async () => {
     }
 });
 
-// Optional: Automatisch zur App weiterleiten, falls sie schon installiert ist
-if (window.matchMedia('(display-mode: standalone)').matches) {
-    window.location.replace('/g-calculator.html');
+// Automatische Weiterleitung für alle Besucher
+if (!window.matchMedia('(display-mode: standalone)').matches) {
+    // Besucher im Browser → direkt zu g-calculator.html
+    window.location.replace('g-calculator.html');
+} else {
+    // Besucher als PWA installiert → optional auch g-calculator.html
+    window.location.replace('g-calculator.html');
 }
 </script>
 </body>
