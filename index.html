@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="utf-8">
@@ -12,11 +12,33 @@
 <meta name="theme-color" content="#2e7d32">
 
 <!-- Manifest -->
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 
+<!-- Style -->
 <style>
-  body { font-family: sans-serif; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; text-align:center; margin:0; background:#020617; color:white; }
-  #install-btn { display:none; margin-top:20px; padding:12px 24px; font-size:1rem; border:none; border-radius:12px; background:#38bdf8; color:#020617; cursor:pointer; }
+  body { 
+    font-family: sans-serif; 
+    display:flex; 
+    flex-direction:column; 
+    justify-content:center; 
+    align-items:center; 
+    height:100vh; 
+    text-align:center; 
+    margin:0; 
+    background:#020617; 
+    color:white; 
+  }
+  #install-btn { 
+    display:none; 
+    margin-top:20px; 
+    padding:12px 24px; 
+    font-size:1rem; 
+    border:none; 
+    border-radius:12px; 
+    background:#38bdf8; 
+    color:#020617; 
+    cursor:pointer; 
+  }
 </style>
 </head>
 <body>
@@ -25,6 +47,14 @@
 <button id="install-btn">Zum Homescreen hinzufügen</button>
 
 <script>
+// Service Worker registrieren
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+    .then(() => console.log('Service Worker registriert!'))
+    .catch(err => console.log('Service Worker Fehler:', err));
+}
+
+// Installationsbanner
 let deferredPrompt;
 const installBtn = document.getElementById('install-btn');
 
@@ -36,20 +66,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 installBtn.addEventListener('click', async () => {
     installBtn.style.display = 'none';
-    if(deferredPrompt) {
+    if (deferredPrompt) {
         deferredPrompt.prompt();
         const choiceResult = await deferredPrompt.userChoice;
         deferredPrompt = null;
     }
 });
 
-// Automatische Weiterleitung für alle Besucher
-if (!window.matchMedia('(display-mode: standalone)').matches) {
-    // Besucher im Browser → direkt zu g-calculator.html
-    window.location.replace('g-calculator.html');
-} else {
-    // Besucher als PWA installiert → optional auch g-calculator.html
-    window.location.replace('g-calculator.html');
+// Optional: Automatisch weiterleiten, falls schon als PWA geöffnet
+if (window.matchMedia('(display-mode: standalone)').matches) {
+    console.log('PWA läuft im Standalone-Modus');
 }
 </script>
 </body>
